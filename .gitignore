@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+
+# Backup files
+*.tar.gz
+*.bak
+*.save
+
+# OS
+.DS_Store
+Thumbs.db
