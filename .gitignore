@@ -23,3 +23,19 @@ tests/
 
 # backups
 *.save
+
+# build / releases / dumps
+*.tgz
+rvpanel_FULL_DUMP*.txt
+rvpanel_all_code_dump*.txt
+rvpanel_audit.txt
+
+# local venv
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# local tests/tools output
+tests/__pycache__/
+tools/__pycache__/
