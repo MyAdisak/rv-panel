@@ -1,15 +1,18 @@
 #!/bin/bash
+set -e
 
-# รอ X desktop พร้อม
-sleep 5
+export DISPLAY=:0
+export XAUTHORITY=/home/pi/.Xauthority
+
+sleep 3
 
 cd /home/pi/rv-panel
 source venv/bin/activate
 
-# ปิด screensaver / blank
-xset s off
-xset s noblank
-xset -dpms
+# ปิดพักจอ/blank/dpms
+xset s off || true
+xset s noblank || true
+xset -dpms || true
 
 # รันแอป
-python3 app.py
+exec python3 /home/pi/rv-panel/app.py

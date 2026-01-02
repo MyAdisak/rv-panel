@@ -2,13 +2,15 @@ import tkinter as tk
 from tkinter import ttk
 
 from services.state import AppState
+
 from ui.main_page import MainPage
+from ui.menu_page import MenuPage
 from ui.lighting_page import LightingPage
 from ui.solar_page import SolarPage
 from ui.inverter_page import InverterPage
 from ui.battery_page import BatteryPage
 from ui.settings_page import SettingsPage
-from ui.menu_page import MenuPage
+
 
 UI_REFRESH_MS = 500
 LOGIC_TICK_MS = 1000
@@ -29,9 +31,13 @@ class RVApp(tk.Tk):
             "muted": "#777777",
         }
 
+        # ====== STATE ======
         self.state = AppState()
+
+        # ====== THEME ======
         self._theme()
 
+        # ====== CONTAINER ======
         container = ttk.Frame(self, style="Root.TFrame")
         container.pack(fill="both", expand=True)
         container.rowconfigure(0, weight=1)
@@ -57,6 +63,7 @@ class RVApp(tk.Tk):
 
         self.show_frame("MainPage")
 
+        # ====== LOOPS ======
         self.after(200, self._logic_loop)
         self.after(200, self._ui_loop)
 
@@ -64,7 +71,11 @@ class RVApp(tk.Tk):
         s = ttk.Style()
         s.theme_use("clam")
         s.configure("Root.TFrame", background=self.colors["bg"])
-        s.configure("TLabel", background=self.colors["bg"], foreground=self.colors["primary"])
+        s.configure(
+            "TLabel",
+            background=self.colors["bg"],
+            foreground=self.colors["primary"]
+        )
 
     def show_frame(self, name):
         frame = self.frames[name]

@@ -1,35 +1,40 @@
-from services.relay_rs485 import RelayRS485
-import random
 import time
+import random
+
+from services.relay_rs485 import RelayRS485
+
+# MPPT driver จะ import เฉพาะตอนเปิดใช้งานจริง (กันพัง/กันอ่านไม่ตอบ)
+# from services.lt3048m60_modbus import LT3048M60
 
 
 class AppState:
     def __init__(self):
+        # ================= PORT CONFIG =================
+        self.rs485_port = "/dev/ttyUSB0"
+        self.rs485_baud = 9600
+
+        # ================= RELAY (ID255 broadcast) =================
+        self.relay = RelayRS485(port=self.rs485_port, baudrate=self.rs485_baud, slave_id=255)
+
+        # ================= MPPT (ยังไม่ต่อสาย = ปิดไว้ก่อน) =================
+        self.enable_mppt = False
+        self.mppt_id = 1
+        self.solar_driver = None  # จะสร้างตอน enable_mppt=True
 
         # ================= SETTINGS LOCK =================
         self.settings_pin = "1234"
         self.settings_unlocked = False
         self.settings_unlock_time = 0
 
-        # ================= LIGHTING DEFAULT (BOOT) =================
-        self.light_defaults = {
-            "light_main_12v": True,
-            "light_downlight": False,
-            "light_hall": False,
-            "light_ambient": False,
-            "light_outdoor": False,
-        }
-
         # ================= Battery =================
-        self.batt12_soc = 80
+        self.batt12_soc = 0.0
+        self.batt12_volt = 0.0
+        self.batt12_curr = 0.0
+
         self.batt24_soc = 62
         self.batt48_soc = 95
-
-        self.batt12_volt = 12.6
         self.batt24_volt = 25.1
         self.batt48_volt = 52.8
-
-        self.batt12_curr = 0.0
         self.batt24_curr = 0.0
         self.batt48_curr = 0.0
 
@@ -39,65 +44,51 @@ class AppState:
         self.light_hall = False
         self.light_ambient = False
         self.light_outdoor = False
+        self.light_defaults = {"light_main_12v": True, "light_downlight": False}
 
         # ================= Solar =================
-        self.solar_volt = 19.0
-        self.solar_curr = 3.0
-        self.solar_temp = 38.0
+        self.solar_volt = 0.0
+        self.solar_curr = 0.0
+        self.solar_temp = 0.0
+        self.pv1_volt = 0.0
+        self.pv2_volt = 0.0
 
-        self.pv1_volt = 19.0
-        self.pv2_volt = 18.5
-
-        # ================= AC Input =================
-        self.ac_in_volt = 228.0
-        self.ac_in_curr = 1.8
+        # ================= Inverter/AC (จำลองก่อน) =================
+        self.ac_in_volt = 220.0
+        self.ac_in_curr = 0.0
         self.ac_in_freq = 50.0
 
-        # ================= Inverter Output =================
         self.inv_out_volt = 230.0
-        self.inv_out_curr = 2.5
+        self.inv_out_curr = 0.0
         self.inv_out_freq = 50.0
-        self.inv_mode = "Line"   # Line / Inverter / Bypass
 
-        # ================= INVERTER FAULT / ALARM =================
-        self.inv_alarm_level = "NORMAL"   # NORMAL / WARNING / FAULT
+        self.inv_mode = "Line"
+        self.inv_alarm_level = "NORMAL"
         self.inv_fault_code = 0
         self.inv_fault_msg = "-"
 
-        # ================= Relay Controller =================
-        self.relay = RelayRS485()
-
-        # ================= RS485 / MODBUS STATUS =================
-        self.rs485_status = "INIT"      # INIT / OK / ERROR / TIMEOUT
+        # ================= RS485 STATUS =================
+        self.rs485_status = "INIT"
         self.rs485_last_ok = 0
-        self.rs485_error_count = 0
 
-        # ================= APPLY LIGHT DEFAULTS (BOOT) =================
-        for name, value in self.light_defaults.items():
-            self.set_light(name, value)
+        # APPLY LIGHT DEFAULTS
+        self.apply_defaults()
 
-    # ----------------------------------------------------
-    #   RS485 / Modbus health update
-    # ----------------------------------------------------
+    def apply_defaults(self):
+        for name, val in self.light_defaults.items():
+            self.set_light(name, val)
+
     def update_rs485_status(self, ok: bool):
         now = time.time()
-
         if ok:
             self.rs485_status = "OK"
             self.rs485_last_ok = now
         else:
-            self.rs485_error_count += 1
-            if now - self.rs485_last_ok > 3:
+            if now - self.rs485_last_ok > 5:
                 self.rs485_status = "TIMEOUT"
-            else:
-                self.rs485_status = "ERROR"
 
-    # ----------------------------------------------------
-    #   Lighting Control (REAL RELAY)
-    # ----------------------------------------------------
     def set_light(self, name: str, value: bool):
         setattr(self, name, bool(value))
-
         mapping = {
             "light_main_12v": 1,
             "light_downlight": 2,
@@ -105,7 +96,6 @@ class AppState:
             "light_ambient": 4,
             "light_outdoor": 5,
         }
-
         ch = mapping.get(name)
         if not ch:
             return
@@ -115,73 +105,46 @@ class AppState:
                 self.relay.relay_on(ch)
             else:
                 self.relay.relay_off(ch)
-
             self.update_rs485_status(True)
-
-        except Exception:
+        except Exception as e:
+            print("[Relay ERROR]", e)
             self.update_rs485_status(False)
 
-    # ----------------------------------------------------
-    #   UPDATE EVERY TICK (SIMULATION)
-    # ----------------------------------------------------
+    def _ensure_mppt(self):
+        """สร้าง driver MPPT ตอนเปิดใช้จริงเท่านั้น"""
+        if not self.enable_mppt:
+            return
+        if self.solar_driver is not None:
+            return
+        from services.lt3048m60_modbus import LT3048M60
+        self.solar_driver = LT3048M60(port=self.rs485_port, baudrate=self.rs485_baud, device_id=self.mppt_id)
+
     def tick(self):
-        self.simulate_tick()
+        """logic loop 1s"""
+        # 1) MPPT (ถ้ายังไม่ต่อสาย = ข้าม)
+        try:
+            if self.enable_mppt:
+                self._ensure_mppt()
+                v_pv = self.solar_driver.pv_voltage()
+                i_pv = self.solar_driver.pv_current()
+                v_batt = self.solar_driver.batt_voltage()
+                soc = self.solar_driver.batt_soc()
 
-        # ----- Solar -----
-        self.solar_volt = 18.5 + random.uniform(-1.0, 1.0)
-        self.solar_curr = max(0, 3.0 + random.uniform(-2.5, 2.5))
-        self.solar_temp = 35 + random.uniform(-3, 5)
+                if v_pv is not None:
+                    self.solar_volt = float(v_pv)
+                    self.solar_curr = float(i_pv or 0.0)
+                    self.pv1_volt = float(v_pv)
+                    self.batt12_volt = float(v_batt or 0.0)
+                    self.batt12_soc = float(soc or 0.0)
+                    self.update_rs485_status(True)
+                else:
+                    self.update_rs485_status(False)
+        except Exception as e:
+            print("[MPPT READ ERROR]", e)
+            self.update_rs485_status(False)
 
-        self.pv1_volt = self.solar_volt
-        self.pv2_volt = self.solar_volt - random.uniform(0, 1.0)
-
-        # ----- Battery currents -----
-        self.batt12_curr = random.uniform(-5, 5)
-        self.batt24_curr = random.uniform(-6, 6)
-        self.batt48_curr = random.uniform(-8, 8)
-
-        for name, curr in [
-            ("batt12_soc", self.batt12_curr),
-            ("batt24_soc", self.batt24_curr),
-            ("batt48_soc", self.batt48_curr),
-        ]:
-            soc = getattr(self, name)
-            if curr > 0.5:
-                soc += 0.05
-            elif curr < -0.5:
-                soc -= 0.05
-            soc = max(0, min(100, soc))
-            setattr(self, name, soc)
-
-        # ----- AC Input -----
-        self.ac_in_volt = 228 + random.uniform(-4, 4)
-        self.ac_in_curr = max(0, 2 + random.uniform(-1.5, 1.5))
-        self.ac_in_freq = 50 + random.uniform(-0.2, 0.2)
-
-        # ----- Inverter Output -----
-        self.inv_out_volt = 230 + random.uniform(-3, 3)
-        self.inv_out_curr = max(0, 2.5 + random.uniform(-1.0, 1.0))
-        self.inv_out_freq = 50 + random.uniform(-0.1, 0.1)
-
-        self.inv_mode = random.choice(["Line", "Inverter", "Bypass"])
-
-        # ----- Inverter Alarm Simulation -----
-        r = random.random()
-        if r < 0.85:
-            self.inv_alarm_level = "NORMAL"
-            self.inv_fault_code = 0
-            self.inv_fault_msg = "-"
-        elif r < 0.95:
-            self.inv_alarm_level = "WARNING"
-            self.inv_fault_code = 101
-            self.inv_fault_msg = "High Load"
-        else:
-            self.inv_alarm_level = "FAULT"
-            self.inv_fault_code = 201
-            self.inv_fault_msg = "Over Voltage"
-
-    # ----------------------------------------------------
-    #   Placeholder
-    # ----------------------------------------------------
-    def simulate_tick(self):
-        pass
+        # 2) ค่าจำลอง (กัน UI ว่าง)
+        self.ac_in_volt = 220 + random.uniform(-2, 2)
+        self.ac_in_freq = 50.0
+        self.inv_out_volt = 230 + random.uniform(-1, 1)
+        self.inv_out_freq = 50.0

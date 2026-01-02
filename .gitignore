@@ -2,14 +2,24 @@
 __pycache__/
 *.pyc
 
-# Virtual environment
+# Virtual env
 venv/
+.venv/
 
-# Backup files
-*.tar.gz
-*.bak
-*.save
+# Dumps / releases
+rvpanel_FULL_DUMP*
+rvpanel_all_code_dump*
+rvpanel_audit.txt
+rv-panel_release_*.tgz
+rv-panel_src_*.tgz
+rvpanel_bundle.tgz
 
-# OS
+# Tests
+tests/
+
+# OS / editor
 .DS_Store
-Thumbs.db
+*.swp
+
+# backups
+*.save
