@@ -40,7 +40,7 @@ class LightingPage(Frame):
         main_frame = Frame(self, bg=DARK_BG)
         main_frame.pack(pady=10)
 
-        self.btn_main_12v = self._make_toggle(main_frame, "12V MAIN", "light_main_12v")
+        self.btn_main_12v = self._make_toggle(main_frame, "ไฟหลอดนีออน", "light_main_12v")
         self.btn_main_12v.grid(row=0, column=0, padx=10, pady=10)
 
         # ---------- ZONES ----------
