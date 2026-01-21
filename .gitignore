@@ -39,3 +39,11 @@ __pycache__/
 # local tests/tools output
 tests/__pycache__/
 tools/__pycache__/
+
+# Devices
+ttyUSB*
+
+# Runtime devices & artifacts
+ttyUSB*
+backup/
+*.tgz

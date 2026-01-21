@@ -40,7 +40,9 @@ class LightingPage(Frame):
         main_frame = Frame(self, bg=DARK_BG)
         main_frame.pack(pady=10)
 
-        self.btn_main_12v = self._make_toggle(main_frame, "ไฟหลอดนีออน", "light_main_12v")
+        self.btn_main_12v = self._make_toggle(
+            main_frame, "ไฟหลอดนีออน", "light_main_12v"
+        )
         self.btn_main_12v.grid(row=0, column=0, padx=10, pady=10)
 
         # ---------- ZONES ----------
@@ -79,6 +81,7 @@ class LightingPage(Frame):
     def _toggle(self, attr):
         current = getattr(self.state, attr)
         self.state.set_light(attr, not current)
+        self.refresh()   # <<< แก้ตรงนี้ บรรทัดเดียวจบ
 
     # ---------- Refresh Button Color ----------
     def refresh(self):
@@ -100,7 +103,6 @@ class LightingPage(Frame):
     # ---------- Update From AppState ----------
     def update_data(self, st):
         self.refresh()
-
 
     # ---------- On Page Show ----------
     def on_show(self):

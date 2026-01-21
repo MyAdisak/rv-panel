@@ -169,22 +169,16 @@ class MainPage(Frame):
     # DATA UPDATE
     # =================================================
     def update_data(self, st):
+        # ===== 48V (เอาแค่ SOC + V) =====
+        soc48 = float(getattr(st, "batt48_soc", 0.0) or 0.0)
         v48 = float(getattr(st, "batt48_volt", 0.0) or 0.0)
-        i48 = float(getattr(st, "batt48_curr", 0.0) or 0.0)
-        power48 = v48 * i48
-        state = (
-            "CHARGING" if  i48 > 0.5
-            else "DISCHARGING" if i48 < -0.5
-            else "IDLE"
-        )
-        color = ACCENT_48 if state == "CHARGING" else ORANGE
 
-        self.lbl_48_soc.config(text=f"{int(st.batt48_soc)} %", fg=color)
-        self.lbl_48_vals.config(
-            text=f"{v48:.1f} V   {i48:.1f} A   {power48:.0f} W"
-        )
-        self.lbl_48_state.config(text=state, fg=color)
+        # สีหลักคงเดิม
+        self.lbl_48_soc.config(text=f"{int(soc48)} %", fg=ACCENT_48)
+        self.lbl_48_vals.config(text=f"{v48:.1f} V")
+        self.lbl_48_state.config(text="BATTERY", fg=MUTED)
 
+        # ===== 12V / 24V =====
         self.card12.value.config(
             text=f"{st.batt12_soc:.0f}%  {st.batt12_volt:.1f}V"
         )
@@ -192,6 +186,7 @@ class MainPage(Frame):
             text=f"{st.batt24_soc:.0f}%  {st.batt24_volt:.1f}V"
         )
 
+        # ===== SOLAR / AC =====
         self.lbl_solar.config(
             text=f"{st.solar_volt:.1f}V  {st.solar_curr:.1f}A  {st.solar_volt * st.solar_curr:.0f}W"
         )
@@ -199,6 +194,7 @@ class MainPage(Frame):
             text=f"{st.ac_in_volt:.0f}V  {st.ac_in_freq:.1f}Hz"
         )
 
+        # ===== INVERTER =====
         self.lbl_inv_val.config(
             text=f"MODE: {st.inv_mode}   {st.inv_out_volt:.0f}V"
         )
